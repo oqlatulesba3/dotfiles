@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -e
+
+theme="$1"
+src="$HOME/Pictures/Bing"
+dst="$HOME/.config/omarchy/current/theme/backgrounds"
+
+ln -sf "$src"/* "$dst"/
+
+# --- Sync omarchy colors to cosmic-term ---
+COLORS_FILE="$HOME/.config/omarchy/current/theme/colors.toml"
+COSMIC_TERM_DIR="$HOME/.config/cosmic/com.system76.CosmicTerm/v1"
+
+if [[ -f "$COLORS_FILE" ]] && [[ -d "$COSMIC_TERM_DIR" ]]; then
+  # Parse colors.toml (key = "value" format)
+  declare -A colors
+  while IFS='=' read -r key value; do
+    key="${key// /}"
+    [[ -z "$key" || "$key" == \#* ]] && continue
+    # Extract value between first pair of quotes
+    value="${value#*\"}"
+    value="${value%%\"*}"
+    colors["$key"]="$value"
+  done < "$COLORS_FILE"
+
+  # Generate RON color scheme
+  ron_content=$(cat <<EOF
+{
+    1: (
+        name: "${theme}",
+        foreground: "${colors[foreground]}",
+        background: "${colors[background]}",
+        cursor: "${colors[cursor]}",
+        dim_foreground: "${colors[foreground]}",
+        bright_foreground: "${colors[foreground]}",
+        normal: (
+            black: "${colors[color0]}",
+            red: "${colors[color1]}",
+            green: "${colors[color2]}",
+            yellow: "${colors[color3]}",
+            blue: "${colors[color4]}",
+            magenta: "${colors[color5]}",
+            cyan: "${colors[color6]}",
+            white: "${colors[color7]}",
+        ),
+        bright: (
+            black: "${colors[color8]}",
+            red: "${colors[color9]}",
+            green: "${colors[color10]}",
+            yellow: "${colors[color11]}",
+            blue: "${colors[color12]}",
+            magenta: "${colors[color13]}",
+            cyan: "${colors[color14]}",
+            white: "${colors[color15]}",
+        ),
+    ),
+}
+EOF
+)
+
+  # Write color schemes (same for dark and light since omarchy theme is one scheme)
+  echo "$ron_content" > "$COSMIC_TERM_DIR/color_schemes_dark"
+  echo "$ron_content" > "$COSMIC_TERM_DIR/color_schemes_light"
+
+  # Set the active syntax themes to our custom scheme name
+  printf '"%s"' "$theme" > "$COSMIC_TERM_DIR/syntax_theme_dark"
+  printf '"%s"' "$theme" > "$COSMIC_TERM_DIR/syntax_theme_light"
+fi
